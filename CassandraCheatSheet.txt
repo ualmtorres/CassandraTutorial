@@ -1,0 +1,44 @@
+Start: bin/cassandra -f
+Status: bin/nodetool status
+Info of a node: bin/nodetool -h 127.0.0.1
+Tokens of a node: bin/nodetool ring
+
+** keyspaces
+describe keyspaces;
+describe kesypace <name>
+CREATE KEYSPACE vehicle_tracker
+WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
+CREATE KEYSPACE vehicle_tracker
+WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'dc1' : 3, 'dc2' : 2};
+DROP KEYSPACE vehicle_tracker
+USE <name>
+
+** Tables
+CREATE TABLE activity (
+                 ... home_id text,
+                 ... datetime timestamp ,
+                 ... event text,
+                 ... code_used text,       
+                 ... PRIMARY KEY(home_id, datetime)
+                 ... ) WITH CLUSTERING ORDER BY (datetime DESC);
+DESCRIBE TABLE <keyspace>.<table>
+
+
+** COPY
+COPY activity (home_id, datetime, event, code_used) FROM 
+'~/CassandraTutorial/Working Files/events.csv' 
+WITH header = true AND delimiter = '|';
+
+COPY activity (home_id, datetime, event, code_used) TO 
+'~/CassandraTutorial/Working Files/events2.csv' 
+WITH header = true AND delimiter = '|';
+
+** Index
+
+CREATE INDEX state_index 
+ON home (state);
+
+** Composite Partition Keys
+PRIMARY KEY ((vehicle_id, date), time)
+
+
