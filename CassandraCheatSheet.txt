@@ -1,16 +1,36 @@
+** Ubuntu Installation
+wget http://apache.rediris.es/cassandra/2.0.14/apache-cassandra-2.0.14-bin.tar.gz
+tar xvfz apache-cassandra-2.0.14-bin.tar.gz 
+cd apache-cassandra-2.0.14/
+
+** Setup Cassandra (conf/cassandra.yaml)
+Cluster Name
+Number of token ranges per virtual node
+Partitioner (e.g. Murmur3)
+Data files directory
+	sudo mkdir /var/lib/cassandra
+	sudo mkdir /var/log/cassandra
+
+	sudo chown -R $USER:$GROUP /var/lib/cassandra
+	sudo chown -R $USER:$GROUP /var/log/cassandra
+Endpoint Snitch (e.g SimpleSnitch)
+
+** Basics
 Start: bin/cassandra -f
 Status: bin/nodetool status
 Info of a node: bin/nodetool -h 127.0.0.1
 Tokens of a node: bin/nodetool ring
 
 ** keyspaces
-describe keyspaces;
-describe kesypace <name>
+DESCRIBE KEYSPACES;
+DESCRIBE KEYSPACE <name>
 CREATE KEYSPACE vehicle_tracker
 WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
 CREATE KEYSPACE vehicle_tracker
 WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'dc1' : 3, 'dc2' : 2};
 DROP KEYSPACE vehicle_tracker
+ALTER KEYSPACE vehicle_tracker
+WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 2 };
 USE <name>
 
 ** Tables
@@ -57,3 +77,64 @@ for (Row row : result) {
     double lon = row.getDouble("longitude");			
     System.out.println(lat + " " + lon);
 }
+
+PreparedStatement statement = session.prepare(
+        "INSERT INTO location" + "(vehicle_id, date, time, latitude, longitude) "
+                + "VALUES (?,?,?,?,?);");
+BoundStatement boundStatement = new BoundStatement(statement); 
+session.execute(boundStatement.bind(vehicle_id, date, time, latitude, longitude));
+
+** CQL
+SELECT, INSERT, UPDATE and DELETE very similar to SQL
+However Non-indexed (Indexed, primary and cluster) columns cannot be used in WHERE clauses
+
+** Deleting columns
+DELETE body
+FROM messages_by_user 
+WHERE    sender = 'bobby' AND
+         sent = '2013-07-21 15:34:01+0200' ;
+
+** TTL (in seconds)
+INSERT INTO location (vehicle_id, date, time, latitude, longitude) 
+VALUES ('AZWT3RSKI', '2014-05-20', '2014-05-20 11:23:55', 34.872689, -111.757373) 
+USING TTL 30;
+
+UPDATE location 
+USING TTL 7776000 
+SET     latitude = 34.872689, 
+        longitude = -111.757373 
+WHERE   vehicle_id = 'AZWT3RSKI' AND 
+        date = '2014-05-20' AND 
+        time='2014-05-20 11:23:55';
+
+** TRUNCATE avoids the risk of a DELETE FROM without WHERE
+TRUNCATE messages_by_user
+
+** Adding nodes
+Edit conf/cassandra.yaml
+	listen_address: 192.168.1.101 	# Change in every node
+	rpc_address: 192.168.1.101	# Change in every node
+	seeds: "192.168.1.101"		# Use the same in all nodes
+
+** Cleanup nodes (deleting the data they don't own)
+bin/nodetool -h xxx.xxx.xxx.xxx cleanup
+
+** Repair nodes (Update nodes after being inaccessible)
+bin/nodetool -h xxx.xxx.xxx.xxx repair <keyspace>
+
+** Setup consistency
+cqlsh> CONSISTENCY [ONE | TWO | THREE | LOCAL_QUORUM | EACH_QUORUM | QUORUM | ALL | ...]
+
+** Removing a dead node
+$ cd /var/lib/cassandra
+$ rm -r commitlog data saved_caches
+
+** Setup a cluster with many data centers
+In each node edit conf/cassandra.yaml
+	Set endpoint_snitch: GossipingPropertyFileSnitch
+In each node edit conf/cassandra-rackdc.properties
+	Set Data Center and Rack
+
+** Replication strategy in a cluster with many data centers
+ALTER KEYSPACE vehicle_tracker
+WITH REPLICATION = {'class': 'NetworkTopologyStrategy', 'DC1': 2, 'DC2': 1}
